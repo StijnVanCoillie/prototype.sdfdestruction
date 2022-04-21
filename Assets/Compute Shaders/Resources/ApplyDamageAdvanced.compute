@@ -1,0 +1,64 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float> pixelBuffer;
+int pixelBufferSize;
+int textureSize;
+float totalUnitsInTexture;
+
+Texture3D textureDamage;
+int textureDamageSize;
+float unitsInDamage;
+float maximumDamage;
+
+float3 boundingBoxPosition;
+float3 boundingBoxMin;
+float3 boundingBoxMax;
+
+// Returns the position (relative to the triangle buffer) of the voxel id
+float3 PositionFromVoxelId(uint3 id)
+{
+	float3 pos = (float3)id;  // 0:textureSize-1
+	pos = pos / ((float)textureSize - 1.0);  // 0:1
+	pos = pos * (totalUnitsInTexture*2);  // 0:meshSize
+	pos = pos - (totalUnitsInTexture);  // -meshExtent:+meshExtent
+	return pos;
+}
+
+uint3 To3D(uint id)
+{
+	uint xQ = id / textureSize;
+	uint x = id % textureSize;
+	uint yQ = xQ / textureSize;
+	uint y = xQ % textureSize;
+	uint z = yQ % textureSize;
+	return uint3(x, y, z);
+}
+
+bool PointInBoundingBox(float3 p)
+{
+	return p.x > boundingBoxMin.x && p.x < boundingBoxMax.x && p.y > boundingBoxMin.y && p.y < boundingBoxMax.y && p.z > boundingBoxMin.z && p.z < boundingBoxMax.z;
+}
+
+float GetDistance(float3 p)
+{
+	float3 pointInTexDamage = p - boundingBoxPosition;
+	pointInTexDamage += unitsInDamage * 0.5;
+	pointInTexDamage /= unitsInDamage;
+
+	return textureDamage[uint3(pointInTexDamage * textureDamageSize)].r / maximumDamage;// In pixels
+}
+
+[numthreads(256, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	float3 pos = PositionFromVoxelId(To3D(id.x));
+
+	float currentValue = pixelBuffer[id.x];
+
+	if (PointInBoundingBox(pos))
+	{
+		currentValue = min(currentValue, GetDistance(pos) / totalUnitsInTexture);
+	}
+
+	pixelBuffer[id.x] = currentValue;
+}

@@ -1,0 +1,72 @@
+#pragma kernel CSMain
+
+//RWStructuredBuffer<float> pixelBuffer;
+
+int textureSize;
+float totalUnitsInTexture;
+
+float4x4 InverseTransform;
+float3 hitPoint;
+float3 hitDirection;
+
+//RWStructuredBuffer<bool> hitCheck;
+//RWStructuredBuffer<float3> impactPoint;
+
+RWStructuredBuffer<float4> hitInfo;
+
+//StructuredBuffer<float> pixels;
+
+Texture3D<half> damagedTexture;
+//Texture3D damagedTexture;
+
+int3 GetTexturePosition(float3 pos)
+{
+	float3 p = mul(InverseTransform, float4(pos, 1)).xyz;
+	p /= totalUnitsInTexture;
+	p += float3(1, 1, 1);
+	p *= 0.5f;
+	p *= textureSize;
+	return int3((int)p.x, (int)p.y, (int)p.z);
+}
+
+bool CheckForHit(int3 pos)
+{
+	// convert 3D to 1D
+	//uint index = (pos.z * textureSize * textureSize) + (pos.y * textureSize) + pos.x;
+	//return pixels[index] > 0;
+	//return false;
+
+	//return damagedTexture[pos].r > 0;
+	return damagedTexture[pos] > 0;
+}
+
+bool WithinBounds(int3 pos)
+{
+	if (pos.x >= 0 && pos.y >= 0 && pos.z >= 0)
+	{
+		if (pos.x < textureSize && pos.y < textureSize && pos.z < textureSize)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+[numthreads(128, 1, 1)]//256,1,1
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	if (hitInfo[0].w > 0.5) return;
+
+	float min = 0.1;
+	float3 pos = hitPoint + hitDirection * id.x * min; // 0.1 is the minumum step
+	uint3 texPos = GetTexturePosition(pos);
+
+	if (WithinBounds(texPos))
+	{
+		if (CheckForHit(texPos))
+		{
+			// return hit position, and 1 for true
+			hitInfo[0] = float4(pos, 1);
+		}
+	}
+}

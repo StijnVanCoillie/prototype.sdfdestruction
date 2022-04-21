@@ -1,0 +1,173 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float> pixelBuffer;
+
+int textureSize;
+float totalUnitsInTexture;
+float3 posDamage;
+float radiusDamage;
+
+// Test
+float3 dirDamage;
+half randomUnit;
+
+// Returns the position (relative to the triangle buffer) of the voxel id
+float3 PositionFromVoxelId(uint3 id)
+{
+	float3 pos = (float3)id;  // 0:textureSize-1
+	pos = pos / ((float)textureSize - 1.0);  // 0:1
+	pos = pos * (totalUnitsInTexture*2);  // 0:meshSize
+	pos = pos - (totalUnitsInTexture);  // -meshExtent:+meshExtent
+	return pos;
+}
+
+uint3 To3D(uint id)
+{
+	uint xQ = id / textureSize;
+	uint x = id % textureSize;
+	uint yQ = xQ / textureSize;
+	uint y = xQ % textureSize;
+	uint z = yQ % textureSize;
+	return uint3(x, y, z);
+}
+
+float3x3 rotate_x(float a) { float sa = sin(a); float ca = cos(a); return float3x3(float3(1., .0, .0), float3(.0, ca, sa), float3(.0, -sa, ca)); }
+float3x3 rotate_y(float a) { float sa = sin(a); float ca = cos(a); return float3x3(float3(ca, .0, sa), float3(.0, 1., .0), float3(-sa, .0, ca)); }
+float3x3 rotate_z(float a) { float sa = sin(a); float ca = cos(a); return float3x3(float3(ca, sa, .0), float3(-sa, ca, .0), float3(.0, .0, 1.)); }
+
+float Fracture(float3 p)
+{
+	float rad2deg = 0.01745329251;
+
+	float s = 0.5;
+	p = p - posDamage;
+
+	// First Cube
+	float3 p1 = mul(rotate_y(50.0 * rad2deg), p);
+	float3 q1 = abs(p1) - float3(radiusDamage * s, radiusDamage * s, radiusDamage * s);
+	float d1 = length(max(q1, 0)) + min(max(q1.x, max(q1.y, q1.z)), 0);
+	// Second Cube
+	float3 p2 = mul(rotate_x(45 * rad2deg), p);
+	p2.z *= 0.5;
+	float3 q2 = abs(p2) - float3(radiusDamage * s, radiusDamage * s, radiusDamage * s);
+	float d2 = length(max(q2, 0)) + min(max(q2.x, max(q2.y, q2.z)), 0);
+
+	return min(d1, d2);
+}
+
+float sdOctahedron(float3 p, float s)
+{
+	p = abs(p);
+	float m = p.x + p.y + p.z - s;
+	float3 q;
+	if (3.0 * p.x < m) q = p.xyz;
+	else if (3.0 * p.y < m) q = p.yzx;
+	else if (3.0 * p.z < m) q = p.zxy;
+	else return m * 0.57735027;
+
+	float k = clamp(0.5 * (q.z - q.y + s), 0.0, s);
+	return length(float3(q.x, q.y - s + k, q.z - k));
+}
+
+float sdOctahedronNotExact(float3 p, float s)
+{
+	p = abs(p);
+	return (p.x + p.y + p.z - s) * 0.57735027;
+}
+
+float fracture_002(float3 p)
+{
+	float rad2deg = 0.01745329251;
+
+	p = p - posDamage;
+
+	float3 p1 = mul(rotate_y(50.0 * rad2deg), p);
+	float d1 = sdOctahedronNotExact(p1, radiusDamage);
+
+	p1 = mul(rotate_z(50.0 * rad2deg), p);
+	float d2 = sdOctahedronNotExact(p1, radiusDamage);
+
+	return min(d1, d2);
+}
+
+float Fracture003(float3 p)
+{
+	float rad2deg = 0.01745329251;
+
+	p = p - posDamage;
+
+	float3 p1 = mul(rotate_y(50.0 * rad2deg + randomUnit), p);
+	float d1 = sdOctahedronNotExact(p1, radiusDamage);
+
+	p1 = mul(rotate_z(50.0 * rad2deg + randomUnit), p);
+	float d2 = sdOctahedronNotExact(p1, radiusDamage);
+
+	return min(d1, d2);
+}
+
+float Fracture004(float3 p)
+{
+	float rad2deg = 0.01745329251;
+
+	p = p - posDamage;
+
+	float3 p1 = mul(rotate_y(50.0 * rad2deg + randomUnit), p);
+	p1 = mul(rotate_x(50.0 * rad2deg + randomUnit), p);
+	p1 = mul(rotate_z(50.0 * rad2deg + randomUnit), p);
+	float d1 = sdOctahedronNotExact(p1, radiusDamage);
+
+	p1 = mul(rotate_x(120.0 * rad2deg + randomUnit), p);
+	p1 = mul(rotate_y(80.0 * rad2deg + randomUnit), p);
+	p1 = mul(rotate_z(210.0 * rad2deg + randomUnit), p);
+	float d2 = sdOctahedronNotExact(p1, radiusDamage);
+
+	p1 = mul(rotate_x(randomUnit), p);
+	p1 = mul(rotate_y(randomUnit), p);
+	p1 = mul(rotate_z(randomUnit), p);
+	float d3 = sdOctahedronNotExact(p1, radiusDamage);
+
+	return min( d3, min(d1, d2));
+}
+
+float Laser(float3 p)
+{
+	float3 ba = dirDamage * 20;
+
+	float3 pa = p - posDamage;
+	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+	return length(pa - ba * h) - radiusDamage;
+}
+
+[numthreads(256, 1, 1)]//256,1,1
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	float3 pos = PositionFromVoxelId(To3D(id.x));
+
+	// Sphere
+	//float dist = distance(pos, posDamage);
+	//dist -= radiusDamage;// Signing of the distance
+
+	// Box
+	//float3 q = abs(pos - posDamage) - float3(radiusDamage*s, radiusDamage*s, radiusDamage*s);
+	//float dist = length(max(q, 0)) + min(max(q.x, max(q.y, q.z)), 0);
+
+	// Fractures
+	//float dist = Fracture(pos);
+	//float dist = sdOctahedron(pos - posDamage, 0.5);
+	//dist = sdOctahedronNotExact(pos - posDamage, 0.5);
+	//float dist = fracture_002(pos);
+	//float dist = Fracture003(pos);
+	float dist = Fracture004(pos);
+
+	// Laser
+	//float dist = Laser(pos);
+
+	// In case its a RGBA format and we collect the normal
+	/*float3 normalDir = normalize(pos - posDamage);
+	normalDir = lerp( pixelBuffer[id.x].rgb, normalDir, step(dist, 0.1));
+
+	pixelBuffer[id.x] = float4(normalDir, min(pixelBuffer[id.x].a, dist / totalUnitsInTexture));*/
+
+	// In case its a RHalf format, we only collect the signed distance
+	pixelBuffer[id.x] = min(pixelBuffer[id.x], dist / totalUnitsInTexture); // Float only test
+}

@@ -1,0 +1,9 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float4> pixelBuffer;
+
+[numthreads(256, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	pixelBuffer[id.x] = 1; // Float only test
+}
