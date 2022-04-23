@@ -6,5 +6,4 @@ The sample scene scene can be found by opening the project and opening the `Asse
 * Capsule
 * Custom non-convex mesh
 
-【**NOTE**】
-Sample scene only support the Lecacy (Build-in) render pipeline.
+> **Note**: Sample scene only supports the Lecacy (Build-in) render pipeline. See [Requirements](requirements.md) for more information.
