@@ -4,7 +4,7 @@
 
 ## Render pipeline compatibility
 
-* SDF Destruction on Mesh Data supports only **Legacy**. However, the method should be easy convertible.
+* SDF Destruction on Mesh Data supports only **Legacy**. However, the method should be easy to convert.
  
 * Support for **forward rendering** and **deferred rendering**.
 
