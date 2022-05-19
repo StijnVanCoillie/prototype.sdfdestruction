@@ -1,8 +1,34 @@
 ## Starting using Signed Distance Field Destruction
-general information about the setup creation and how to use it.
+Select `Prototype/Destructible Object Generator` in the menu bar to start creating your own destructible asset.
+
+![Alt](images/DestructionGenerator.PNG "Destruction Generator")
+1. **Mesh** : Assign the mesh you want to convert to a destructible object.
+2. **SDF Resolution** : Decides the resolution for the SDF. See `Destructible Object Component` for more information.
+3. **Create Destructible Object** : This will open up a save panel. Choose the location you want to save the generated object.
+
+The end result should look like this:
+
+![Alt](images/Asset.PNG "Asset in editor")
+* **Material** : The destructable material, specifically for this asset.
+* **Prefab** : A prefab of the destructible asset.
+* **SDF** : A SDF of the destructable asset. A preview can be visualized when viewed in the inspector.
+![Alt](images/Preview.PNG "SDF Preview")
 
 ## Destructible Object Component
 The **DestructibleObject.cs** is automaticly assigned to the generate destruction prefab. This component is responsible for managing the destruction. Currently there is only one function you can call to apply damage `AddDamage( Vector3 hitPoint, Vector3 hitDir, float radius)`. In code you do have the option to choose between CPU or GPU based destruction.
+
+![Alt](images/DestructibleObject.PNG "Destructible Object Component")
+* **Sdf Resolution** : Decides the resolution in px³ for the signed distance field of the destruction / damage. 
+
+<p float="left">
+
+<img src="images/SDFResolution.PNG" width="60%" />
+</p>
+
+> **Note**: Very High or 256px³ is currently not fully supported.
+
+* **Destructible Material** : Is a reference to the destructable material for this asset.
+
 
 ## Shader Overview
 In the DestructionShader.shader we divide our structure into three different parts.
